@@ -95,24 +95,24 @@ export default function LoginPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm">
-        <div className="container mx-auto flex h-16 items-center px-4">
-          <Link href="/" className="flex items-center gap-3">
-            <Shield className="h-8 w-8 text-primary" />
-            <span className="text-xl font-bold tracking-tight text-foreground">RakshaSetu</span>
+        <div className="container mx-auto flex h-16 items-center px-4 md:px-6">
+          <Link href="/" className="flex items-center gap-2 md:gap-3">
+            <Shield className="h-6 w-6 md:h-8 md:w-8 text-primary" />
+            <span className="text-lg md:text-xl font-bold tracking-tight text-foreground">RakshaSetu</span>
           </Link>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-12">
-        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2">
+      <div className="container mx-auto px-4 md:px-6 py-8 md:py-12">
+        <div className="mx-auto grid max-w-6xl gap-6 md:gap-8 lg:grid-cols-2">
           {/* User Access Card */}
           <Card className="border-border bg-card">
-            <CardHeader>
-              <CardTitle className="text-2xl text-foreground">User Access</CardTitle>
-              <CardDescription className="text-muted-foreground">Defence Ecosystem Login</CardDescription>
+            <CardHeader className="p-4 md:p-6">
+              <CardTitle className="text-xl md:text-2xl text-foreground">User Access</CardTitle>
+              <CardDescription className="text-sm text-muted-foreground">Defence Ecosystem Login</CardDescription>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleUserLogin} className="space-y-6">
+            <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
+              <form onSubmit={handleUserLogin} className="space-y-4 md:space-y-6">
                 <div className="space-y-4">
                   <Label className="text-foreground">Select Role</Label>
                   <RadioGroup value={userRole} onValueChange={(value) => setUserRole(value as UserRole)}>
@@ -256,12 +256,12 @@ export default function LoginPage() {
 
           {/* CERT Admin Access Card */}
           <Card className="border-border bg-card">
-            <CardHeader>
-              <CardTitle className="text-2xl text-foreground">CERT Authority Access</CardTitle>
-              <CardDescription className="text-muted-foreground">Administrative Login</CardDescription>
+            <CardHeader className="p-4 md:p-6">
+              <CardTitle className="text-xl md:text-2xl text-foreground">CERT Authority Access</CardTitle>
+              <CardDescription className="text-sm text-muted-foreground">Administrative Login</CardDescription>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleAdminLogin} className="space-y-6">
+            <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
+              <form onSubmit={handleAdminLogin} className="space-y-4 md:space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="admin-email">Admin Email</Label>
                   <Input

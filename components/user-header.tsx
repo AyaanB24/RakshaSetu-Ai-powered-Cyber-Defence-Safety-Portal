@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { Menu } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { store, type User } from "@/lib/store"
 
-export function UserHeader() {
+export function UserHeader({ onMenuClick }: { onMenuClick?: () => void }) {
   const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
@@ -25,14 +27,21 @@ export function UserHeader() {
   }
 
   return (
-    <div className="flex h-16 items-center justify-between border-b border-border bg-card/50 px-6">
-      <div>
-        <h2 className="text-lg font-semibold text-foreground">{user.name}</h2>
-        <Badge variant="outline" className="mt-1 border-primary/50 text-primary">
-          {roleLabels[user.role]}
-        </Badge>
+    <div className="flex h-16 items-center justify-between border-b border-border bg-card/50 px-4 md:px-6">
+      <div className="flex items-center gap-3">
+        {onMenuClick && (
+          <Button variant="ghost" size="icon" onClick={onMenuClick} className="lg:hidden">
+            <Menu className="h-5 w-5" />
+          </Button>
+        )}
+        <div>
+          <h2 className="text-base md:text-lg font-semibold text-foreground">{user.name}</h2>
+          <Badge variant="outline" className="mt-1 border-primary/50 text-primary text-xs">
+            {roleLabels[user.role]}
+          </Badge>
+        </div>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="hidden md:flex items-center gap-4">
         <div className="text-right">
           <div className="text-xs text-muted-foreground">Security Status</div>
           <div className="text-sm font-medium text-primary">Active & Monitored</div>

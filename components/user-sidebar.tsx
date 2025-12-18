@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Shield, LayoutDashboard, Search, AlertCircle, FileText, LogOut } from "lucide-react"
+import { Shield, LayoutDashboard, Search, AlertCircle, FileText, LogOut, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { store } from "@/lib/store"
@@ -31,7 +31,7 @@ const navItems = [
   },
 ]
 
-export function UserSidebar() {
+export function UserSidebar({ mobile = false, onClose }: { mobile?: boolean; onClose?: () => void }) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -41,11 +41,23 @@ export function UserSidebar() {
   }
 
   return (
-    <div className="flex h-screen w-64 flex-col border-r border-border bg-sidebar">
+    <div
+      className={cn(
+        "flex h-screen flex-col border-r border-border bg-sidebar",
+        mobile ? "w-full" : "w-64 lg:flex hidden",
+      )}
+    >
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6">
-        <Shield className="h-7 w-7 text-sidebar-primary" />
-        <span className="text-lg font-bold text-sidebar-foreground">RakshaSetu</span>
+      <div className="flex h-16 items-center justify-between gap-3 border-b border-sidebar-border px-6">
+        <div className="flex items-center gap-3">
+          <Shield className="h-7 w-7 text-sidebar-primary" />
+          <span className="text-lg font-bold text-sidebar-foreground">RakshaSetu</span>
+        </div>
+        {mobile && onClose && (
+          <Button variant="ghost" size="icon" onClick={onClose} className="lg:hidden">
+            <X className="h-5 w-5" />
+          </Button>
+        )}
       </div>
 
       {/* Navigation */}
@@ -58,6 +70,7 @@ export function UserSidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => mobile && onClose?.()}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive

@@ -15,6 +15,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [recentCases, setRecentCases] = useState<Case[]>([])
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     const currentUser = store.getUser()
@@ -42,75 +43,86 @@ export default function DashboardPage() {
     <div className="flex h-screen bg-background">
       <UserSidebar />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <UserHeader />
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div
+            className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="absolute left-0 top-0 h-full w-80 max-w-[85vw]">
+            <UserSidebar mobile onClose={() => setMobileMenuOpen(false)} />
+          </div>
+        </div>
+      )}
 
-        <main className="flex-1 overflow-y-auto p-6">
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <UserHeader onMenuClick={() => setMobileMenuOpen(true)} />
+
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="mx-auto max-w-7xl space-y-6">
-            {/* Welcome Section */}
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-              <p className="mt-1 text-muted-foreground">Real-time cyber threat protection and incident management</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Dashboard</h1>
+              <p className="mt-1 text-sm md:text-base text-muted-foreground">
+                Real-time cyber threat protection and incident management
+              </p>
             </div>
 
-            {/* Security Posture */}
             <Card className="border-primary/50 bg-primary/5">
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
-                  <Shield className="h-6 w-6 text-primary" />
+              <CardContent className="flex items-center gap-4 p-4 md:p-6">
+                <div className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-full bg-primary/20">
+                  <Shield className="h-5 w-5 md:h-6 md:w-6 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-foreground">Your Security Posture</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <h3 className="text-sm md:text-base font-semibold text-foreground">Your Security Posture</h3>
+                  <p className="text-xs md:text-sm text-muted-foreground">
                     All systems operational. Active threat monitoring enabled.
                   </p>
                 </div>
-                <Badge className="bg-primary text-primary-foreground">Secure</Badge>
+                <Badge className="bg-primary text-primary-foreground text-xs">Secure</Badge>
               </CardContent>
             </Card>
 
-            {/* Action Cards */}
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-4 md:gap-6 sm:grid-cols-2">
               <Card className="border-border">
-                <CardHeader>
+                <CardHeader className="p-4 md:p-6">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                       <Search className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <CardTitle>Check Suspicious Content</CardTitle>
-                      <CardDescription>AI-powered threat analysis</CardDescription>
+                      <CardTitle className="text-base md:text-lg">Check Suspicious Content</CardTitle>
+                      <CardDescription className="text-xs md:text-sm">AI-powered threat analysis</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <p className="mb-4 text-sm text-muted-foreground">
+                <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
+                  <p className="mb-4 text-xs md:text-sm text-muted-foreground">
                     Upload suspicious files, messages, or links for instant AI analysis and threat detection.
                   </p>
                   <Link href="/check-content">
-                    <Button className="w-full">Analyze Content</Button>
+                    <Button className="w-full text-sm">Analyze Content</Button>
                   </Link>
                 </CardContent>
               </Card>
 
               <Card className="border-border">
-                <CardHeader>
+                <CardHeader className="p-4 md:p-6">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10">
                       <AlertCircle className="h-5 w-5 text-secondary" />
                     </div>
                     <div>
-                      <CardTitle>Report Cyber Incident</CardTitle>
-                      <CardDescription>Submit evidence to CERT</CardDescription>
+                      <CardTitle className="text-base md:text-lg">Report Cyber Incident</CardTitle>
+                      <CardDescription className="text-xs md:text-sm">Submit evidence to CERT</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <p className="mb-4 text-sm text-muted-foreground">
+                <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
+                  <p className="mb-4 text-xs md:text-sm text-muted-foreground">
                     Report confirmed cyber threats with evidence for immediate CERT investigation.
                   </p>
                   <Link href="/report-attack">
-                    <Button variant="outline" className="w-full bg-transparent">
+                    <Button variant="outline" className="w-full bg-transparent text-sm">
                       File Report
                     </Button>
                   </Link>
@@ -118,25 +130,24 @@ export default function DashboardPage() {
               </Card>
             </div>
 
-            {/* Recent Cases */}
             <Card className="border-border">
-              <CardHeader>
+              <CardHeader className="p-4 md:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Recent Cases</CardTitle>
-                    <CardDescription>Your recent incident reports</CardDescription>
+                    <CardTitle className="text-base md:text-lg">Recent Cases</CardTitle>
+                    <CardDescription className="text-xs md:text-sm">Your recent incident reports</CardDescription>
                   </div>
                   <Link href="/case-status">
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" className="text-xs bg-transparent">
                       View All
                     </Button>
                   </Link>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
                 {recentCases.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <TrendingUp className="mb-3 h-12 w-12 text-muted-foreground/50" />
+                    <TrendingUp className="mb-3 h-10 w-10 md:h-12 md:w-12 text-muted-foreground/50" />
                     <p className="text-sm font-medium text-muted-foreground">No cases reported yet</p>
                     <p className="mt-1 text-xs text-muted-foreground">Your incident reports will appear here</p>
                   </div>
@@ -145,19 +156,21 @@ export default function DashboardPage() {
                     {recentCases.map((caseItem) => (
                       <div
                         key={caseItem.id}
-                        className="flex items-center justify-between rounded-lg border border-border bg-card p-4"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 md:p-4"
                       >
                         <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-sm font-medium text-foreground">{caseItem.id}</span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-xs md:text-sm font-medium text-foreground">
+                              {caseItem.id}
+                            </span>
                             <Badge
                               variant="outline"
                               className={
                                 caseItem.severity === "High"
-                                  ? "border-destructive/50 text-destructive"
+                                  ? "border-destructive/50 text-destructive text-xs"
                                   : caseItem.severity === "Medium"
-                                    ? "border-secondary/50 text-secondary"
-                                    : "border-primary/50 text-primary"
+                                    ? "border-secondary/50 text-secondary text-xs"
+                                    : "border-primary/50 text-primary text-xs"
                               }
                             >
                               {caseItem.attackType}
@@ -175,6 +188,7 @@ export default function DashboardPage() {
                                 ? "secondary"
                                 : "outline"
                           }
+                          className="text-xs self-start sm:self-center"
                         >
                           {caseItem.status}
                         </Badge>
