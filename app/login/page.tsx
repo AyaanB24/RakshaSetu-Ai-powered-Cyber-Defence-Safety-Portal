@@ -95,10 +95,15 @@ export default function LoginPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm">
-        <div className="container mx-auto flex h-16 items-center px-4 md:px-6">
+        <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
           <Link href="/" className="flex items-center gap-2 md:gap-3">
             <Shield className="h-6 w-6 md:h-8 md:w-8 text-primary" />
             <span className="text-lg md:text-xl font-bold tracking-tight text-foreground">RakshaSetu</span>
+          </Link>
+          <Link href="/signup">
+            <Button variant="outline" size="sm">
+              Sign Up
+            </Button>
           </Link>
         </div>
       </header>
@@ -244,6 +249,13 @@ export default function LoginPage() {
                   Secure Login
                 </Button>
 
+                <div className="text-center text-sm">
+                  <span className="text-muted-foreground">New user? </span>
+                  <Link href="/signup" className="text-primary hover:underline">
+                    Create an account
+                  </Link>
+                </div>
+
                 <div className="rounded-lg border border-secondary/50 bg-secondary/20 p-3">
                   <div className="flex gap-2">
                     <AlertTriangle className="h-5 w-5 flex-shrink-0 text-secondary" />
@@ -258,7 +270,7 @@ export default function LoginPage() {
           <Card className="border-border bg-card">
             <CardHeader className="p-4 md:p-6">
               <CardTitle className="text-xl md:text-2xl text-foreground">CERT Authority Access</CardTitle>
-              <CardDescription className="text-sm text-muted-foreground">Administrative Login</CardDescription>
+              <CardDescription className="text-sm text-muted-foreground">Administrative Login Only</CardDescription>
             </CardHeader>
             <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
               <form onSubmit={handleAdminLogin} className="space-y-4 md:space-y-6">
@@ -293,7 +305,9 @@ export default function LoginPage() {
                 <div className="rounded-lg border border-destructive/50 bg-destructive/20 p-3">
                   <div className="flex gap-2">
                     <AlertTriangle className="h-5 w-5 flex-shrink-0 text-destructive-foreground" />
-                    <p className="text-xs text-foreground">Unauthorized access attempts are logged and monitored.</p>
+                    <p className="text-xs text-foreground">
+                      Admin access is restricted. No registration available. Unauthorized access attempts are logged.
+                    </p>
                   </div>
                 </div>
 

@@ -13,11 +13,18 @@ export default function LandingPage() {
             <Shield className="h-6 w-6 md:h-8 md:w-8 text-primary" />
             <span className="text-lg md:text-xl font-bold tracking-tight text-foreground">RakshaSetu</span>
           </div>
-          <Link href="/login">
-            <Button size="sm" variant="outline" className="text-xs md:text-sm bg-transparent">
-              Secure Login
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2 md:gap-3">
+            <Link href="/login">
+              <Button size="sm" variant="outline" className="text-xs md:text-sm bg-transparent">
+                Login
+              </Button>
+            </Link>
+            <Link href="/signup">
+              <Button size="sm" className="text-xs md:text-sm">
+                Sign Up
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -37,11 +44,22 @@ export default function LandingPage() {
             A secure AI-driven platform for threat detection, evidence preservation, and coordinated CERT response.
           </p>
 
-          <Link href="/login">
-            <Button size="lg" className="font-semibold text-sm md:text-base">
-              Proceed to Secure Login
-            </Button>
-          </Link>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4">
+            <Link href="/signup">
+              <Button size="lg" className="font-semibold text-sm md:text-base w-full sm:w-auto">
+                Create Account
+              </Button>
+            </Link>
+            <Link href="/login">
+              <Button
+                size="lg"
+                variant="outline"
+                className="font-semibold text-sm md:text-base w-full sm:w-auto bg-transparent"
+              >
+                Existing User Login
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Warning Banner */}
