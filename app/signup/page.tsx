@@ -26,6 +26,7 @@ export default function SignupPage() {
   const [dependentId, setDependentId] = useState("")
   const [serviceNo, setServiceNo] = useState("")
   const [unit, setUnit] = useState("")
+  const [password, setPassword] = useState("")
   const [otp, setOtp] = useState("")
   const [otpSent, setOtpSent] = useState(false)
 
@@ -54,7 +55,6 @@ export default function SignupPage() {
       return
     }
 
-    // Demo OTP validation
     if (otp !== "123456") {
       toast({
         title: "Invalid OTP",
@@ -65,7 +65,24 @@ export default function SignupPage() {
     }
 
     try {
+      // 1. Sign up with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email || `${mobile}@rakshasetu.local`, // Fallback for mobile-only users
+        password: password,
+        options: {
+          data: {
+            full_name: name,
+            role: userRole,
+          },
+        },
+      })
+
+      if (authError) throw authError
+      if (!authData.user) throw new Error("No user created")
+
+      // 2. Create Profile linked to Auth User
       const profileData: any = {
+        id: authData.user.id, // Critical: Link to auth.users
         role: userRole,
         full_name: name,
         created_at: new Date().toISOString(),
@@ -82,12 +99,12 @@ export default function SignupPage() {
       } else if (userRole === "dependent") {
         profileData.dependent_id = dependentId
         profileData.mobile = mobile
-        profileData.service_number = serviceNo // Sponsor no
+        profileData.service_number = serviceNo
       }
 
-      const { error } = await supabase.from("profiles").insert([profileData])
+      const { error: profileError } = await supabase.from("profiles").insert([profileData])
 
-      if (error) throw error
+      if (profileError) throw profileError
 
       toast({
         title: "Registration Successful",
@@ -95,6 +112,7 @@ export default function SignupPage() {
       })
       setTimeout(() => router.push("/login"), 2000)
     } catch (error: any) {
+      console.error(error)
       toast({
         title: "Registration Failed",
         description: error.message || "Something went wrong",
@@ -282,6 +300,20 @@ export default function SignupPage() {
                     </div>
                   </>
                 )}
+
+                {/* Password Field */}
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Create a strong password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
 
                 {/* OTP Section */}
                 <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">

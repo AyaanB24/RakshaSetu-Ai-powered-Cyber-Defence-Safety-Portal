@@ -25,7 +25,7 @@ export default function LoginPage() {
   const [userMobile, setUserMobile] = useState("")
   const [userEchs, setUserEchs] = useState("")
   const [userDepId, setUserDepId] = useState("")
-  const [userOtp, setUserOtp] = useState("")
+  const [userPassword, setUserPassword] = useState("")
 
   // Admin login state
   const [adminEmail, setAdminEmail] = useState("")
@@ -34,31 +34,42 @@ export default function LoginPage() {
   const handleUserLogin = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Demo OTP validation
-    if (userOtp !== "123456") {
-      toast({
-        title: "Authentication failed",
-        description: "Invalid OTP.",
-        variant: "destructive",
-      })
-      return
-    }
-
     try {
-      let query = supabase.from("profiles").select("*").eq("role", userRole)
+      let authEmail = userEmail
 
-      if (userRole === "serving") {
-        query = query.eq("email", userEmail)
-      } else if (userRole === "ex-serviceman") {
-        query = query.eq("echs_number", userEchs)
-      } else if (userRole === "dependent") {
-        query = query.eq("dependent_id", userDepId)
+      // For non-serving roles, construct email from mobile (as done in signup)
+      if (userRole !== "serving") {
+        if (!userMobile) {
+          toast({ title: "Error", description: "Mobile number is required", variant: "destructive" })
+          return
+        }
+        authEmail = `${userMobile}@rakshasetu.local`
       }
 
-      const { data, error } = await query.single()
+      // 1. Sign In with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: authEmail,
+        password: userPassword,
+      })
+
+      if (authError) throw new Error(authError.message)
+      if (!authData.user) throw new Error("Authentication failed")
+
+      // 2. Fetch Profile
+      // Now that we are logged in, RLS should allow us to read our own profile
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", authData.user.id)
+        .single()
 
       if (error || !data) {
-        throw new Error("User not found or details incorrect")
+        throw new Error("Profile not found")
+      }
+
+      // 3. Verify Role matches (optional security check)
+      if (data.role !== userRole) {
+        throw new Error("Role mismatch. Please login with the correct role.")
       }
 
       store.setUser({
@@ -74,9 +85,10 @@ export default function LoginPage() {
       router.push("/dashboard")
 
     } catch (error: any) {
+      console.error(error)
       toast({
         title: "Authentication failed",
-        description: "Invalid credentials or user not found.",
+        description: error.message || "Invalid credentials.",
         variant: "destructive",
       })
     }
@@ -168,13 +180,13 @@ export default function LoginPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="user-otp">OTP</Label>
+                      <Label htmlFor="user-password">Password</Label>
                       <Input
-                        id="user-otp"
-                        type="text"
-                        placeholder="Enter OTP"
-                        value={userOtp}
-                        onChange={(e) => setUserOtp(e.target.value)}
+                        id="user-password"
+                        type="password"
+                        placeholder="Enter Password"
+                        value={userPassword}
+                        onChange={(e) => setUserPassword(e.target.value)}
                         required
                       />
                     </div>
@@ -206,13 +218,13 @@ export default function LoginPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="ex-otp">OTP</Label>
+                      <Label htmlFor="ex-password">Password</Label>
                       <Input
-                        id="ex-otp"
-                        type="text"
-                        placeholder="Enter OTP"
-                        value={userOtp}
-                        onChange={(e) => setUserOtp(e.target.value)}
+                        id="ex-password"
+                        type="password"
+                        placeholder="Enter Password"
+                        value={userPassword}
+                        onChange={(e) => setUserPassword(e.target.value)}
                         required
                       />
                     </div>
@@ -244,13 +256,13 @@ export default function LoginPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="dep-otp">OTP</Label>
+                      <Label htmlFor="dep-password">Password</Label>
                       <Input
-                        id="dep-otp"
-                        type="text"
-                        placeholder="Enter OTP"
-                        value={userOtp}
-                        onChange={(e) => setUserOtp(e.target.value)}
+                        id="dep-password"
+                        type="password"
+                        placeholder="Enter Password"
+                        value={userPassword}
+                        onChange={(e) => setUserPassword(e.target.value)}
                         required
                       />
                     </div>
@@ -326,9 +338,8 @@ export default function LoginPage() {
                 <div className="mt-6 space-y-2 rounded-lg bg-muted/50 p-3">
                   <p className="text-xs font-medium text-muted-foreground">Demo Credentials:</p>
                   <ul className="space-y-1 text-xs text-muted-foreground">
-                    <li>• Serving: rajat.singh@indianarmy.mil | OTP: 123456</li>
-                    <li>• Ex-Serviceman: ECHS-778812 | OTP: 123456</li>
-                    <li>• Dependent: DEP-44321 | OTP: 123456</li>
+                    <li>• Serving: Login/Signup with Email + Password</li>
+                    <li>• Ex-Serviceman: Login/Signup with Mobile + Password (fake email: mobile@rakshasetu.local)</li>
                     <li>• Admin: cert.admin@gov.in | Pass: Raksha@123</li>
                   </ul>
                 </div>
