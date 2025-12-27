@@ -13,6 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Shield, AlertTriangle } from "lucide-react"
 import { store, type UserRole } from "@/lib/store"
 import { useToast } from "@/hooks/use-toast"
+import { supabase } from "@/lib/supabase"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -30,41 +31,52 @@ export default function LoginPage() {
   const [adminEmail, setAdminEmail] = useState("")
   const [adminPassword, setAdminPassword] = useState("")
 
-  const handleUserLogin = (e: React.FormEvent) => {
+  const handleUserLogin = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Demo credentials validation
-    if (userRole === "serving" && userEmail === "rajat.singh@indianarmy.mil" && userOtp === "123456") {
-      store.setUser({
-        id: "user-001",
-        role: "serving",
-        email: userEmail,
-        name: "Major Rajat Singh",
-      })
-      toast({ title: "Login successful", description: "Welcome, Major Rajat Singh" })
-      router.push("/dashboard")
-    } else if (userRole === "ex-serviceman" && userEchs === "ECHS-778812" && userOtp === "123456") {
-      store.setUser({
-        id: "user-002",
-        role: "ex-serviceman",
-        echsNo: userEchs,
-        name: "Col. (Retd) Vikram Sharma",
-      })
-      toast({ title: "Login successful", description: "Welcome, Col. (Retd) Vikram Sharma" })
-      router.push("/dashboard")
-    } else if (userRole === "dependent" && userDepId === "DEP-44321" && userOtp === "123456") {
-      store.setUser({
-        id: "user-003",
-        role: "dependent",
-        dependentId: userDepId,
-        name: "Mrs. Priya Singh",
-      })
-      toast({ title: "Login successful", description: "Welcome, Mrs. Priya Singh" })
-      router.push("/dashboard")
-    } else {
+    // Demo OTP validation
+    if (userOtp !== "123456") {
       toast({
         title: "Authentication failed",
-        description: "Invalid credentials. Please check and try again.",
+        description: "Invalid OTP.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      let query = supabase.from("profiles").select("*").eq("role", userRole)
+
+      if (userRole === "serving") {
+        query = query.eq("email", userEmail)
+      } else if (userRole === "ex-serviceman") {
+        query = query.eq("echs_number", userEchs)
+      } else if (userRole === "dependent") {
+        query = query.eq("dependent_id", userDepId)
+      }
+
+      const { data, error } = await query.single()
+
+      if (error || !data) {
+        throw new Error("User not found or details incorrect")
+      }
+
+      store.setUser({
+        id: data.id,
+        role: data.role as UserRole,
+        email: data.email,
+        name: data.full_name,
+        echsNo: data.echs_number,
+        dependentId: data.dependent_id,
+      })
+
+      toast({ title: "Login successful", description: `Welcome, ${data.full_name}` })
+      router.push("/dashboard")
+
+    } catch (error: any) {
+      toast({
+        title: "Authentication failed",
+        description: "Invalid credentials or user not found.",
         variant: "destructive",
       })
     }

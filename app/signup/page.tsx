@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Shield, AlertTriangle, CheckCircle2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { supabase } from "@/lib/supabase"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -45,7 +46,7 @@ export default function SignupPage() {
     })
   }
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!otpSent) {
@@ -54,16 +55,49 @@ export default function SignupPage() {
     }
 
     // Demo OTP validation
-    if (otp === "123456") {
+    if (otp !== "123456") {
+      toast({
+        title: "Invalid OTP",
+        description: "Please check the OTP and try again.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const profileData: any = {
+        role: userRole,
+        full_name: name,
+        created_at: new Date().toISOString(),
+      }
+
+      if (userRole === "serving") {
+        profileData.email = email
+        profileData.service_number = serviceNo
+        profileData.unit = unit
+      } else if (userRole === "ex-serviceman") {
+        profileData.echs_number = echsNo
+        profileData.mobile = mobile
+        profileData.service_number = serviceNo
+      } else if (userRole === "dependent") {
+        profileData.dependent_id = dependentId
+        profileData.mobile = mobile
+        profileData.service_number = serviceNo // Sponsor no
+      }
+
+      const { error } = await supabase.from("profiles").insert([profileData])
+
+      if (error) throw error
+
       toast({
         title: "Registration Successful",
         description: "Your account has been created. Redirecting to login...",
       })
       setTimeout(() => router.push("/login"), 2000)
-    } else {
+    } catch (error: any) {
       toast({
-        title: "Invalid OTP",
-        description: "Please check the OTP and try again.",
+        title: "Registration Failed",
+        description: error.message || "Something went wrong",
         variant: "destructive",
       })
     }
