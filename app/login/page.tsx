@@ -338,8 +338,9 @@ export default function LoginPage() {
                 <div className="mt-6 space-y-2 rounded-lg bg-muted/50 p-3">
                   <p className="text-xs font-medium text-muted-foreground">Demo Credentials:</p>
                   <ul className="space-y-1 text-xs text-muted-foreground">
-                    <li>• Serving: Login/Signup with Email + Password</li>
-                    <li>• Ex-Serviceman: Login/Signup with Mobile + Password (fake email: mobile@rakshasetu.local)</li>
+                    <li>• Serving: rajat.singh@indianarmy.mil | Pass: 123456</li>
+                    <li>• Ex-Serviceman: ECHS-778812 | Pass: 123456</li>
+                    <li>• Dependent: DEP-44321 | Pass: 123456</li>
                     <li>• Admin: cert.admin@gov.in | Pass: Raksha@123</li>
                   </ul>
                 </div>
