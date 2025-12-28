@@ -9,32 +9,42 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Search, AlertCircle, Shield, TrendingUp } from "lucide-react"
+import { useCases } from "@/hooks/use-cases"
+import { supabase } from "@/lib/supabase"
 import { store, type User, type Case } from "@/lib/store"
 
 export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
-  const [recentCases, setRecentCases] = useState<Case[]>([])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
+  const { cases, loading } = useCases(user?.id)
+  const recentCases = cases.slice(0, 5)
+
   useEffect(() => {
-    const currentUser = store.getUser()
-    if (!currentUser || currentUser.role === "admin") {
-      router.push("/login")
-      return
-    }
-
-    setUser(currentUser)
-    setRecentCases(store.getUserCases(currentUser.id).slice(0, 5))
-
-    const unsubscribe = store.subscribe(() => {
-      const updatedUser = store.getUser()
-      if (updatedUser && updatedUser.id === currentUser.id) {
-        setRecentCases(store.getUserCases(updatedUser.id).slice(0, 5))
+    const checkUser = async () => {
+      // 1. Check store first
+      const storeUser = store.getUser()
+      if (storeUser && storeUser.role !== "admin") {
+        setUser(storeUser)
+        return
       }
-    })
 
-    return unsubscribe
+      // 2. Check Supabase session
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        setUser({
+          id: session.user.id,
+          name: session.user.email?.split("@")[0] || "User",
+          email: session.user.email || "",
+          role: "serving" // Default for user dashboard
+        })
+        return
+      }
+
+      router.push("/login")
+    }
+    checkUser()
   }, [router])
 
   if (!user) return null
@@ -182,15 +192,15 @@ export default function DashboardPage() {
                         </div>
                         <Badge
                           variant={
-                            caseItem.status === "Resolved"
+                            (caseItem.status?.toUpperCase() === "RESOLVED" || caseItem.status?.toUpperCase() === "ACTION_TAKEN" || caseItem.status === "Resolved")
                               ? "default"
-                              : caseItem.status === "Under Review"
+                              : (caseItem.status?.toUpperCase() === "UNDER_REVIEW" || caseItem.status === "Under Review")
                                 ? "secondary"
                                 : "outline"
                           }
                           className="text-xs self-start sm:self-center"
                         >
-                          {caseItem.status}
+                          {caseItem.status?.toUpperCase() === "ACTION_TAKEN" ? "Resolved" : caseItem.status}
                         </Badge>
                       </div>
                     ))}

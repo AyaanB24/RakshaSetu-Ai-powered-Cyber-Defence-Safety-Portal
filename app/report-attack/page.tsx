@@ -17,11 +17,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Upload, Shield, Loader2 } from "lucide-react"
 import { store, type User, type Case } from "@/lib/store"
 import { analyzeContent, type AnalysisResult } from "@/lib/ai-detector"
+import { useCases } from "@/hooks/use-cases"
 
 function ReportAttackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [user, setUser] = useState<User | null>(null)
+  const { createCase } = useCases(user?.id) // Pass user ID
   const [description, setDescription] = useState("")
   const [affectedSystem, setAffectedSystem] = useState("")
   const [location, setLocation] = useState("")
@@ -74,35 +76,39 @@ function ReportAttackContent() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!user || !analysisResult) return
 
-    const newCase = store.addCase({
-      userId: user.id,
-      userName: user.name,
-      userRole: user.role,
-      attackType: analysisResult.attackType,
-      severity: analysisResult.severity,
-      confidence: analysisResult.confidence,
-      description: description || "No description provided",
-      evidence: uploadedFiles.map((f) => f.name),
-      status: "Submitted",
-      affectedSystem: affectedSystem || undefined,
-      location: location || undefined,
-      mitigationSteps: analysisResult.mitigationSteps,
-    })
+    try {
+      const newCase = await createCase({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        attackType: analysisResult.attackType,
+        severity: analysisResult.severity,
+        confidence: analysisResult.confidence,
+        description: description || "No description provided",
+        evidence: uploadedFiles.map((f) => f.name),
+        status: "Submitted",
+        affectedSystem: affectedSystem || undefined,
+        location: location || undefined,
+        mitigationSteps: analysisResult.mitigationSteps,
+      })
 
-    setSubmittedCase(newCase)
-    setShowModal(true)
+      setSubmittedCase(newCase)
+      setShowModal(true)
 
-    // Reset form
-    setDescription("")
-    setAffectedSystem("")
-    setLocation("")
-    setUploadedFiles([])
-    setAnalysisResult(null)
+      // Reset form
+      setDescription("")
+      setAffectedSystem("")
+      setLocation("")
+      setUploadedFiles([])
+      setAnalysisResult(null)
+    } catch (error) {
+      console.error("Error submitting case:", error)
+    }
   }
 
   const handleModalClose = () => {
