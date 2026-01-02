@@ -26,6 +26,12 @@ export type CaseStatus = "Submitted" | "Under Review" | "Resolved"
 
 export type RiskSeverity = "Low" | "Medium" | "High"
 
+export interface CryptographicEvidence {
+  cid: string
+  hash: string
+  signature: string
+}
+
 export interface Case {
   id: string
   userId: string
@@ -36,6 +42,7 @@ export interface Case {
   confidence: number
   description: string
   evidence: string[]
+  cryptographicEvidence?: CryptographicEvidence[]
   status: CaseStatus
   submittedAt: Date
   updatedAt: Date

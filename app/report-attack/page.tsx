@@ -14,14 +14,18 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Upload, Shield, Loader2 } from "lucide-react"
+import { Upload, Shield, Loader2, CheckCircle2, ExternalLink } from "lucide-react"
 import { store, type User, type Case } from "@/lib/store"
 import { analyzeContent, type AnalysisResult } from "@/lib/ai-detector"
 import { useCases } from "@/hooks/use-cases"
+import { useToast } from "@/hooks/use-toast"
+import { supabase } from "@/lib/supabase"
+import { Progress } from "@/components/ui/progress"
 
 function ReportAttackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { toast } = useToast()
   const [user, setUser] = useState<User | null>(null)
   const { createCase } = useCases(user?.id) // Pass user ID
   const [description, setDescription] = useState("")
@@ -32,6 +36,9 @@ function ReportAttackContent() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [submittedCase, setSubmittedCase] = useState<Case | null>(null)
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({})
+  const [ipfsResult, setIpfsResult] = useState<{ [key: string]: { cid: string, url: string } }>({})
+  const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
     const currentUser = store.getUser()
@@ -58,6 +65,11 @@ function ReportAttackContent() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     setUploadedFiles((prev) => [...prev, ...files])
+
+    // Start uploading immediately for new files
+    files.forEach(file => {
+      uploadToIPFS(file)
+    })
   }
 
   const handleAnalyze = async () => {
@@ -76,6 +88,89 @@ function ReportAttackContent() {
     }
   }
 
+  const uploadToIPFS = async (file: File) => {
+    if (!user) return
+
+    setIsUploading(true)
+    setUploadProgress((prev) => ({ ...prev, [file.name]: 10 }))
+
+    try {
+      // Use getSession but catch refresh errors
+      let session;
+      try {
+        const { data } = await supabase.auth.getSession()
+        session = data.session;
+      } catch (err: any) {
+        console.error("Session retrieval error:", err)
+        if (err.message.includes("refresh_token_not_found") || err.message.includes("Invalid Refresh Token")) {
+          throw new Error("Your session has expired. Please log out and log in again.")
+        }
+        throw err;
+      }
+
+      if (!session) throw new Error("No active Supabase session found. Please log in.")
+
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("case_id", "temp-id") // This will be updated on submission or we can just use a placeholder if case doesn't exist yet. 
+      // Actually, the requirement says "store metadata later". 
+      // But my backend API requires case_id.
+      // Let's make case_id optional in backend or pass a dummy one if we haven't created the case yet.
+      // Wait, if we haven't created the case, we can't link it.
+      // Maybe we create the case FIRST, then upload? 
+      // But the UI says "Evidence secured on IPFS" on success.
+      // Let's adjust the flow: Upload files first, get CIDs, then submit case with CIDs.
+
+      setUploadProgress((prev) => ({ ...prev, [file.name]: 40 }))
+
+      const response = await fetch("/api/upload-evidence", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Upload failed")
+      }
+
+      const result = await response.json()
+      setUploadProgress((prev) => ({ ...prev, [file.name]: 100 }))
+      setIpfsResult((prev) => ({
+        ...prev,
+        [file.name]: {
+          cid: result.cid,
+          url: result.ipfs_url,
+          hash: result.hash,
+          signature: result.signature
+        }
+      }))
+
+      toast({
+        title: "Success",
+        description: `File "${file.name}" secured on IPFS.`,
+      })
+    } catch (error: any) {
+      console.error("IPFS Upload error:", error)
+      setUploadProgress((prev) => ({ ...prev, [file.name]: -1 })) // -1 for error
+
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to secure evidence on IPFS.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleIpfsUploadAll = async () => {
+    const pendingFiles = uploadedFiles.filter(file => !ipfsResult[file.name] && uploadProgress[file.name] !== 100)
+    await Promise.all(pendingFiles.map(file => uploadToIPFS(file)))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -90,7 +185,14 @@ function ReportAttackContent() {
         severity: analysisResult.severity,
         confidence: analysisResult.confidence,
         description: description || "No description provided",
-        evidence: uploadedFiles.map((f) => f.name),
+        evidence: Object.values(ipfsResult).map((r: any) => r.cid).length > 0
+          ? Object.values(ipfsResult).map((r: any) => r.cid)
+          : uploadedFiles.map((f) => f.name),
+        cryptographicEvidence: Object.values(ipfsResult).map((r: any) => ({
+          cid: r.cid,
+          hash: r.hash,
+          signature: r.signature
+        })),
         status: "Submitted",
         affectedSystem: affectedSystem || undefined,
         location: location || undefined,
@@ -106,6 +208,8 @@ function ReportAttackContent() {
       setLocation("")
       setUploadedFiles([])
       setAnalysisResult(null)
+      setIpfsResult({})
+      setUploadProgress({})
     } catch (error) {
       console.error("Error submitting case:", error)
     }
@@ -164,19 +268,72 @@ function ReportAttackContent() {
                     </Button>
 
                     {uploadedFiles.length > 0 && (
-                      <div className="mt-3 space-y-2">
+                      <div className="mt-3 space-y-3">
                         {uploadedFiles.map((file, index) => (
                           <div
                             key={index}
-                            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2"
+                            className="flex flex-col gap-2 rounded-lg border border-border p-3"
                           >
-                            <Badge variant="outline" className="border-primary/50 text-primary">
-                              {file.type.split("/")[0] || "file"}
-                            </Badge>
-                            <span className="flex-1 text-sm text-foreground">{file.name}</span>
-                            <span className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</span>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="border-primary/50 text-primary">
+                                {file.type.split("/")[0] || "file"}
+                              </Badge>
+                              <span className="flex-1 text-sm text-foreground">{file.name}</span>
+                              <span className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</span>
+                            </div>
+
+                            {uploadProgress[file.name] !== undefined && (
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-[10px] text-muted-foreground">
+                                  <span>{uploadProgress[file.name] === -1 ? "Upload Failed" : (uploadProgress[file.name] === 100 ? "Uploaded to IPFS" : "Uploading...")}</span>
+                                  <span>{uploadProgress[file.name] === -1 ? "" : `${Math.max(0, uploadProgress[file.name])}%`}</span>
+                                </div>
+                                <Progress value={uploadProgress[file.name] === -1 ? 0 : uploadProgress[file.name]} className="h-1" />
+                              </div>
+                            )}
+
+                            {ipfsResult[file.name] && (
+                              <div className="mt-1 space-y-1">
+                                <div className="flex items-center gap-1 text-[10px] text-green-500 font-medium">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  Evidence secured on IPFS
+                                </div>
+                                <div className="flex flex-col gap-1 rounded bg-muted/30 p-2 text-[10px]">
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground font-mono truncate mr-2">CID: {ipfsResult[file.name].cid}</span>
+                                    <a
+                                      href={ipfsResult[file.name].url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline flex items-center gap-0.5 shrink-0"
+                                    >
+                                      View <ExternalLink className="h-2 w-2" />
+                                    </a>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
+
+                        {!isUploading && uploadedFiles.some(f => !ipfsResult[f.name]) && (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="w-full text-xs"
+                            onClick={handleIpfsUploadAll}
+                          >
+                            Secure All Evidence on IPFS
+                          </Button>
+                        )}
+
+                        {isUploading && (
+                          <Button disabled variant="secondary" size="sm" className="w-full text-xs">
+                            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                            Securing Evidence...
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>

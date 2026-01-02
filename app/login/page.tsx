@@ -94,22 +94,35 @@ export default function LoginPage() {
     }
   }
 
-  const handleAdminLogin = (e: React.FormEvent) => {
+  const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (adminEmail === "cert.admin@gov.in" && adminPassword === "Raksha@123") {
+    try {
+      // 1. Sign In with Supabase Auth for Admin
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: adminEmail,
+        password: adminPassword,
+      })
+
+      if (authError) throw new Error(authError.message)
+      if (!authData.user) throw new Error("Authentication failed")
+
+      // 2. Mock state for dashboard compatibility
       store.setUser({
-        id: "admin-001",
+        id: authData.user.id,
         role: "admin",
         email: adminEmail,
         name: "CERT Admin",
       })
+
       toast({ title: "Admin login successful", description: "Access granted to CERT Dashboard" })
       router.push("/admin")
-    } else {
+
+    } catch (error: any) {
+      console.error(error)
       toast({
         title: "Authentication failed",
-        description: "Invalid admin credentials.",
+        description: error.message || "Invalid admin credentials.",
         variant: "destructive",
       })
     }

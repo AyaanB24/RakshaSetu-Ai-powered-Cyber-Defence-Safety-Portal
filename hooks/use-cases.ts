@@ -22,10 +22,11 @@ export function useCases(userId?: string, isAdmin: boolean = false) {
             let query = supabase
                 .from("cases")
                 .select(`
-          *,
-          analysis_results (*),
-          evidence (*)
-        `)
+                  *,
+                  profiles (full_name, role),
+                  analysis_results (*),
+                  evidence (*)
+                `)
                 .order("created_at", { ascending: false })
 
             // Only filter by user if NOT admin
@@ -42,21 +43,24 @@ export function useCases(userId?: string, isAdmin: boolean = false) {
             const formattedCases: Case[] = casesData.map((c: any) => ({
                 id: c.id,
                 userId: c.profile_id,
-                // For admin view, having 'Unknown' is okay if profile join isn't perfect, 
-                // but typically we'd join profiles. For now, sticking to current schema limits.
-                userName: c.profile_id === userId ? "You" : "User",
-                userRole: "serving", // Placeholder as 'role' is in profiles, not joined here effectively yet without join
+                userName: c.profiles?.full_name || "Unknown User",
+                userRole: (c.profiles?.role as any) || "serving",
 
                 attackType: c.analysis_results?.[0]?.ai_threat_type || "Unknown",
-                severity: (c.analysis_results?.[0]?.risk_score && c.analysis_results[0].risk_score > 70) ? "High" : (c.analysis_results?.[0]?.risk_score > 40 ? "Medium" : "Low"),
-                confidence: c.analysis_results?.[0]?.risk_score || 0,
+                severity: c.severity_level || ((c.analysis_results?.[0]?.risk_score && c.analysis_results[0].risk_score > 70) ? "High" : (c.analysis_results?.[0]?.risk_score > 40 ? "Medium" : "Low")),
+                confidence: c.ai_confidence_score || c.analysis_results?.[0]?.risk_score || 0,
                 description: c.description,
                 evidence: c.evidence?.map((e: any) => e.ipfs_cid) || [],
+                cryptographicEvidence: c.evidence?.map((e: any) => ({
+                    cid: e.ipfs_cid,
+                    hash: e.sha256_hash,
+                    signature: e.rsa_signature
+                })).filter((ce: any) => ce.hash), // Only include those with hash
                 status: c.status,
                 submittedAt: new Date(c.created_at),
                 updatedAt: new Date(c.updated_at),
-                affectedSystem: undefined,
-                location: undefined,
+                affectedSystem: c.affected_system,
+                location: c.incident_location,
                 mitigationSteps: c.analysis_results?.[0]?.mitigation_steps || []
             }))
 
@@ -116,6 +120,10 @@ export function useCases(userId?: string, isAdmin: boolean = false) {
                     status: caseData.status.toUpperCase().replace(' ', '_'), // enum conversion
                     title: caseData.attackType, // Using attack type as title for now
                     description: caseData.description,
+                    affected_system: caseData.affectedSystem,
+                    incident_location: caseData.location,
+                    severity_level: caseData.severity,
+                    ai_confidence_score: caseData.confidence
                 })
                 .select()
                 .single()
@@ -137,11 +145,18 @@ export function useCases(userId?: string, isAdmin: boolean = false) {
 
             // 3. Insert Evidence
             if (caseData.evidence && caseData.evidence.length > 0) {
-                const evidenceInserts = caseData.evidence.map(file => ({
-                    case_id: newCase.id,
-                    ipfs_cid: file, // Storing filename as CID for now
-                    file_type: 'unknown'
-                }))
+                const evidenceInserts = caseData.evidence.map(cid => {
+                    // Find if we have crypto metadata for this CID
+                    const crypto = caseData.cryptographicEvidence?.find(c => c.cid === cid)
+
+                    return {
+                        case_id: newCase.id,
+                        ipfs_cid: cid,
+                        sha256_hash: crypto?.hash || null,
+                        rsa_signature: crypto?.signature || null,
+                        file_type: 'unknown'
+                    }
+                })
 
                 const { error: evidenceError } = await supabase
                     .from("evidence")

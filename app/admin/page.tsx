@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Shield, FileText, Clock, CheckCircle2, AlertTriangle, LogOut, Eye, TrendingUp, Download } from "lucide-react"
+import { Shield, FileText, Clock, CheckCircle2, AlertTriangle, LogOut, Eye, TrendingUp, Download, CheckCircle, XCircle, ExternalLink, Lock } from "lucide-react"
 import type { User, Case, CaseStatus } from "@/lib/store"
 import { store } from "@/lib/store"
 import { useCases } from "@/hooks/use-cases"
@@ -21,36 +21,45 @@ export default function AdminDashboard() {
   const { toast } = useToast()
   const [user, setUser] = useState<User | null>(null)
   const [selectedTab, setSelectedTab] = useState("new")
+  const [verifying, setVerifying] = useState<string | null>(null)
+  const [verificationResult, setVerificationResult] = useState<{ [key: string]: { verified: boolean, reason: string } }>({})
 
   // Admin access to cases
   const { cases, updateCaseStatus, loading } = useCases(user?.id, true)
 
   useEffect(() => {
     const checkUser = async () => {
-      // 1. Check store first (for mock login)
-      const storeUser = store.getUser()
-      if (storeUser && storeUser.role === "admin") {
-        setUser(storeUser)
-        return
-      }
-
-      // 2. Check Supabase session
+      // 1. Check Supabase session first (Truth Source)
       const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
+
+      if (session && session.user.email === "cert.admin@gov.in") {
         setUser({
           id: session.user.id,
-          name: session.user.email?.split("@")[0] || "Admin",
-          email: session.user.email || "",
-          role: "admin", // forcing role for UI
+          name: "CERT Admin",
+          email: session.user.email,
+          role: "admin",
         })
         return
       }
 
-      // 3. Fallback to login
+      // 2. If no valid admin session, check store for fallback (but warn if mismatch)
+      const storeUser = store.getUser()
+      if (storeUser && storeUser.role === "admin" && storeUser.email === "cert.admin@gov.in") {
+        // Double check if session exists
+        if (!session) {
+          router.push("/login")
+          return
+        }
+        setUser(storeUser)
+        return
+      }
+
+      // 3. Unauthorized access
+      toast({ title: "Access Denied", description: "CERT Admin session required.", variant: "destructive" })
       router.push("/login")
     }
     checkUser()
-  }, [router])
+  }, [router, toast])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -68,6 +77,59 @@ export default function AdminDashboard() {
         description: error.message || "Unauthorized or database error.",
         variant: "destructive"
       })
+    }
+  }
+
+  const handleVerify = async (cid: string) => {
+    setVerifying(cid)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch("/api/verify-evidence", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ ipfsCid: cid })
+      })
+      const result = await response.json()
+      setVerificationResult(prev => ({ ...prev, [cid]: { verified: result.verified, reason: result.reason || result.error } }))
+
+      if (result.verified) {
+        toast({ title: "Verification Success", description: "Evidence integrity confirmed." })
+      } else {
+        toast({ title: "Verification Failed", description: result.details || result.reason || "Tampering detected!", variant: "destructive" })
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: "Verification service unavailable.", variant: "destructive" })
+    } finally {
+      setVerifying(null)
+    }
+  }
+
+  const handleViewEvidence = async (cid: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch(`/api/admin/view-evidence?cid=${cid}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${session?.access_token}`
+        }
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.url) {
+        window.open(result.url, "_blank")
+      } else {
+        toast({
+          title: "Access Denied",
+          description: result.error || "You do not have permission to view this evidence.",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Evidence service unavailable.", variant: "destructive" })
     }
   }
 
@@ -121,6 +183,9 @@ export default function AdminDashboard() {
       <DialogContent className="w-[95%] max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Case Details - Admin View</DialogTitle>
+          <DialogDescription>
+            Comprehensive evidence overview and forensic verification for Case ID: {caseItem.id}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -216,15 +281,56 @@ export default function AdminDashboard() {
           {/* Evidence Preview */}
           {caseItem.evidence.length > 0 && (
             <div>
-              <h4 className="mb-2 text-sm font-semibold text-foreground">Evidence Files (Read-Only)</h4>
+              <h4 className="mb-2 text-sm font-semibold text-foreground">Evidence Files (Cryptographic Verification)</h4>
               <div className="space-y-2">
                 {caseItem.evidence.map((file, index) => (
-                  <div key={index} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2">
-                    <FileText className="h-4 w-4 text-primary" />
-                    <span className="text-sm text-foreground truncate">{file}</span>
-                    <Badge variant="outline" className="ml-auto text-xs shrink-0">
-                      Encrypted
-                    </Badge>
+                  <div key={index} className="flex flex-col gap-2 rounded-lg border border-border p-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-primary" />
+                      <span className="text-xs text-foreground truncate font-mono flex-1">{file}</span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="h-7 text-[10px] px-2"
+                          onClick={() => handleViewEvidence(file)}
+                          disabled={!verificationResult[file]?.verified}
+                        >
+                          {verificationResult[file]?.verified ? (
+                            <ExternalLink className="mr-1 h-3 w-3" />
+                          ) : (
+                            <Lock className="mr-1 h-3 w-3 text-muted-foreground" />
+                          )}
+                          {verificationResult[file]?.verified ? "View Evidence" : "Locked: Verify Integrity"}
+                        </Button>
+
+                        {verificationResult[file] ? (
+                          <Badge
+                            variant={verificationResult[file].verified ? "default" : "destructive"}
+                            className={`text-[10px] flex items-center gap-1 ${verificationResult[file].verified ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                          >
+                            {verificationResult[file].verified ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                            {verificationResult[file].verified ? "VERIFIED" : "TAMPERED"}
+                          </Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[10px] px-2"
+                            onClick={() => handleVerify(file)}
+                            disabled={verifying === file}
+                          >
+                            {verifying === file ? "Verifying..." : "Verify Integrity"}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    {verificationResult[file] && (
+                      <div className={`text-[10px] p-2 mt-1 rounded-md border ${verificationResult[file].verified ? 'bg-green-500/10 border-green-500/20 text-green-600' : 'bg-destructive/10 border-destructive/20 text-destructive'}`}>
+                        <span className="font-semibold">{verificationResult[file].verified ? "Security Notice: " : "Security Alert: "}</span>
+                        {verificationResult[file].reason}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -447,6 +553,21 @@ export default function AdminDashboard() {
               user views in real-time.
             </AlertDescription>
           </Alert>
+
+          {/* Auth Debugger (Remove in production) */}
+          <div className="mt-8 rounded-lg border border-dashed border-muted p-4 bg-muted/20">
+            <h5 className="text-xs font-bold uppercase text-muted-foreground mb-2">Auth Debugger</h5>
+            <div className="grid grid-cols-2 gap-2 text-[10px] items-center">
+              <span className="text-muted-foreground">Logged in as:</span>
+              <span className="font-mono text-foreground font-bold">{user.email}</span>
+              <span className="text-muted-foreground">Expected:</span>
+              <span className="font-mono text-primary font-bold">cert.admin@gov.in</span>
+              <span className="text-muted-foreground">Status:</span>
+              <span className={user.email === "cert.admin@gov.in" ? "text-green-500 font-bold" : "text-destructive font-bold"}>
+                {user.email === "cert.admin@gov.in" ? "Authorized" : "Mismatch"}
+              </span>
+            </div>
+          </div>
         </div>
       </main>
     </div>
