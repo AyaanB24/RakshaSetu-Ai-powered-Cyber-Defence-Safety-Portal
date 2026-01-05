@@ -29,6 +29,11 @@ const navItems = [
     href: "/case-status",
     icon: FileText,
   },
+  {
+    title: "Cyber Training",
+    href: "/training",
+    icon: Shield,
+  },
 ]
 
 export function UserSidebar({ mobile = false, onClose }: { mobile?: boolean; onClose?: () => void }) {

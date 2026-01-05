@@ -4,8 +4,7 @@ import type React from "react"
 
 import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { UserSidebar } from "@/components/user-sidebar"
-import { UserHeader } from "@/components/user-header"
+import { UserShell } from "@/components/user-shell"
 import { ConfirmationModal } from "@/components/confirmation-modal"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -27,7 +26,7 @@ function ReportAttackContent() {
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const [user, setUser] = useState<User | null>(null)
-  const { createCase } = useCases(user?.id) // Pass user ID
+  const { createCase } = useCases(user?.id)
   const [description, setDescription] = useState("")
   const [affectedSystem, setAffectedSystem] = useState("")
   const [location, setLocation] = useState("")
@@ -48,7 +47,6 @@ function ReportAttackContent() {
     }
     setUser(currentUser)
 
-    // Preload from check-content if available
     const preload = searchParams.get("preload")
     if (preload) {
       setDescription(decodeURIComponent(preload))
@@ -56,7 +54,6 @@ function ReportAttackContent() {
   }, [router, searchParams])
 
   useEffect(() => {
-    // Auto-analyze if description is preloaded
     if (description && !analysisResult) {
       handleAnalyze()
     }
@@ -66,7 +63,6 @@ function ReportAttackContent() {
     const files = Array.from(e.target.files || [])
     setUploadedFiles((prev) => [...prev, ...files])
 
-    // Start uploading immediately for new files
     files.forEach(file => {
       uploadToIPFS(file)
     })
@@ -95,7 +91,6 @@ function ReportAttackContent() {
     setUploadProgress((prev) => ({ ...prev, [file.name]: 10 }))
 
     try {
-      // Use getSession but catch refresh errors
       let session;
       try {
         const { data } = await supabase.auth.getSession()
@@ -112,14 +107,7 @@ function ReportAttackContent() {
 
       const formData = new FormData()
       formData.append("file", file)
-      formData.append("case_id", "temp-id") // This will be updated on submission or we can just use a placeholder if case doesn't exist yet. 
-      // Actually, the requirement says "store metadata later". 
-      // But my backend API requires case_id.
-      // Let's make case_id optional in backend or pass a dummy one if we haven't created the case yet.
-      // Wait, if we haven't created the case, we can't link it.
-      // Maybe we create the case FIRST, then upload? 
-      // But the UI says "Evidence secured on IPFS" on success.
-      // Let's adjust the flow: Upload files first, get CIDs, then submit case with CIDs.
+      formData.append("case_id", "temp-id")
 
       setUploadProgress((prev) => ({ ...prev, [file.name]: 40 }))
 
@@ -154,7 +142,7 @@ function ReportAttackContent() {
       })
     } catch (error: any) {
       console.error("IPFS Upload error:", error)
-      setUploadProgress((prev) => ({ ...prev, [file.name]: -1 })) // -1 for error
+      setUploadProgress((prev) => ({ ...prev, [file.name]: -1 }))
 
       toast({
         title: "Upload Failed",
@@ -202,7 +190,6 @@ function ReportAttackContent() {
       setSubmittedCase(newCase)
       setShowModal(true)
 
-      // Reset form
       setDescription("")
       setAffectedSystem("")
       setLocation("")
@@ -228,272 +215,262 @@ function ReportAttackContent() {
   })
 
   return (
-    <div className="flex h-screen bg-background">
-      <UserSidebar />
+    <UserShell>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Report Cyber Incident</h1>
+          <p className="mt-1 text-sm md:text-base text-muted-foreground">Submit evidence for CERT investigation</p>
+        </div>
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <UserHeader />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Evidence Upload */}
+          <Card className="border-border">
+            <CardHeader>
+              <CardTitle>Upload Evidence</CardTitle>
+              <CardDescription>
+                Screenshots, files, or any relevant digital evidence (multi-format support)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Button variant="outline" className="relative w-full cursor-pointer bg-transparent" asChild>
+                  <label>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload Files (Text, Image, Audio, Video, Document)
+                    <input
+                      type="file"
+                      className="absolute inset-0 cursor-pointer opacity-0"
+                      multiple
+                      accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.txt"
+                      onChange={handleFileUpload}
+                    />
+                  </label>
+                </Button>
 
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="mx-auto max-w-4xl space-y-6">
-            {/* Header */}
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Report Cyber Incident</h1>
-              <p className="mt-1 text-muted-foreground">Submit evidence for CERT investigation</p>
-            </div>
+                {uploadedFiles.length > 0 && (
+                  <div className="mt-3 space-y-3">
+                    {uploadedFiles.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex flex-col gap-2 rounded-lg border border-border p-3"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="border-primary/50 text-primary">
+                            {file.type.split("/")[0] || "file"}
+                          </Badge>
+                          <span className="flex-1 text-sm text-foreground">{file.name}</span>
+                          <span className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</span>
+                        </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Evidence Upload */}
-              <Card className="border-border">
-                <CardHeader>
-                  <CardTitle>Upload Evidence</CardTitle>
-                  <CardDescription>
-                    Screenshots, files, or any relevant digital evidence (multi-format support)
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Button variant="outline" className="relative w-full cursor-pointer bg-transparent" asChild>
-                      <label>
-                        <Upload className="mr-2 h-4 w-4" />
-                        Upload Files (Text, Image, Audio, Video, Document)
-                        <input
-                          type="file"
-                          className="absolute inset-0 cursor-pointer opacity-0"
-                          multiple
-                          accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.txt"
-                          onChange={handleFileUpload}
-                        />
-                      </label>
-                    </Button>
-
-                    {uploadedFiles.length > 0 && (
-                      <div className="mt-3 space-y-3">
-                        {uploadedFiles.map((file, index) => (
-                          <div
-                            key={index}
-                            className="flex flex-col gap-2 rounded-lg border border-border p-3"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="border-primary/50 text-primary">
-                                {file.type.split("/")[0] || "file"}
-                              </Badge>
-                              <span className="flex-1 text-sm text-foreground">{file.name}</span>
-                              <span className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</span>
+                        {uploadProgress[file.name] !== undefined && (
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-[10px] text-muted-foreground">
+                              <span>{uploadProgress[file.name] === -1 ? "Upload Failed" : (uploadProgress[file.name] === 100 ? "Uploaded to IPFS" : "Uploading...")}</span>
+                              <span>{uploadProgress[file.name] === -1 ? "" : `${Math.max(0, uploadProgress[file.name])}%`}</span>
                             </div>
-
-                            {uploadProgress[file.name] !== undefined && (
-                              <div className="space-y-1">
-                                <div className="flex justify-between text-[10px] text-muted-foreground">
-                                  <span>{uploadProgress[file.name] === -1 ? "Upload Failed" : (uploadProgress[file.name] === 100 ? "Uploaded to IPFS" : "Uploading...")}</span>
-                                  <span>{uploadProgress[file.name] === -1 ? "" : `${Math.max(0, uploadProgress[file.name])}%`}</span>
-                                </div>
-                                <Progress value={uploadProgress[file.name] === -1 ? 0 : uploadProgress[file.name]} className="h-1" />
-                              </div>
-                            )}
-
-                            {ipfsResult[file.name] && (
-                              <div className="mt-1 space-y-1">
-                                <div className="flex items-center gap-1 text-[10px] text-green-500 font-medium">
-                                  <CheckCircle2 className="h-3 w-3" />
-                                  Evidence secured on IPFS
-                                </div>
-                                <div className="flex flex-col gap-1 rounded bg-muted/30 p-2 text-[10px]">
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground font-mono truncate mr-2">CID: {ipfsResult[file.name].cid}</span>
-                                    <a
-                                      href={ipfsResult[file.name].url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-primary hover:underline flex items-center gap-0.5 shrink-0"
-                                    >
-                                      View <ExternalLink className="h-2 w-2" />
-                                    </a>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
+                            <Progress value={uploadProgress[file.name] === -1 ? 0 : uploadProgress[file.name]} className="h-1" />
                           </div>
-                        ))}
-
-                        {!isUploading && uploadedFiles.some(f => !ipfsResult[f.name]) && (
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            className="w-full text-xs"
-                            onClick={handleIpfsUploadAll}
-                          >
-                            Secure All Evidence on IPFS
-                          </Button>
                         )}
 
-                        {isUploading && (
-                          <Button disabled variant="secondary" size="sm" className="w-full text-xs">
-                            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                            Securing Evidence...
-                          </Button>
+                        {ipfsResult[file.name] && (
+                          <div className="mt-1 space-y-1">
+                            <div className="flex items-center gap-1 text-[10px] text-green-500 font-medium">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Evidence secured on IPFS
+                            </div>
+                            <div className="flex flex-col gap-1 rounded bg-muted/30 p-2 text-[10px]">
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground font-mono truncate mr-2">CID: {ipfsResult[file.name].cid}</span>
+                                <a
+                                  href={ipfsResult[file.name].url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline flex items-center gap-0.5 shrink-0"
+                                >
+                                  View <ExternalLink className="h-2 w-2" />
+                                </a>
+                              </div>
+                            </div>
+                          </div>
                         )}
                       </div>
+                    ))}
+
+                    {!isUploading && uploadedFiles.some(f => !ipfsResult[f.name]) && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="w-full text-xs"
+                        onClick={handleIpfsUploadAll}
+                      >
+                        Secure All Evidence on IPFS
+                      </Button>
+                    )}
+
+                    {isUploading && (
+                      <Button disabled variant="secondary" size="sm" className="w-full text-xs">
+                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                        Securing Evidence...
+                      </Button>
                     )}
                   </div>
+                )}
+              </div>
 
-                  <Alert className="border-primary/50 bg-primary/5">
-                    <Shield className="h-4 w-4 text-primary" />
+              <Alert className="border-primary/50 bg-primary/5">
+                <Shield className="h-4 w-4 text-primary" />
+                <AlertDescription className="text-xs">
+                  All evidence is encrypted before secure storage.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border">
+            <CardHeader>
+              <CardTitle>Incident Details</CardTitle>
+              <CardDescription>Provide information about the cyber incident</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="description">Description (Optional)</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Describe what happened, when you noticed it, and any other relevant details..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                  className="resize-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="affected-system">Affected System / App / Platform</Label>
+                <Input
+                  id="affected-system"
+                  placeholder="e.g., Email, WhatsApp, Defence Portal, Banking App"
+                  value={affectedSystem}
+                  onChange={(e) => setAffectedSystem(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="location">Location (Optional)</Label>
+                <Input
+                  id="location"
+                  placeholder="e.g., Delhi, Mumbai, Remote Location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-lg border border-border bg-muted/50 p-3">
+                  <Label className="text-xs text-muted-foreground">Date & Time</Label>
+                  <div className="mt-1 text-sm font-medium text-foreground">{currentDateTime}</div>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/50 p-3">
+                  <Label className="text-xs text-muted-foreground">Reported By</Label>
+                  <div className="mt-1 text-sm font-medium text-foreground">{user.name}</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* AI Analysis Panel */}
+          {!analysisResult && !isAnalyzing && (description || uploadedFiles.length > 0) && (
+            <Button type="button" onClick={handleAnalyze} variant="outline" className="w-full bg-transparent">
+              Run AI Threat Analysis
+            </Button>
+          )}
+
+          {isAnalyzing && (
+            <Card className="border-border">
+              <CardContent className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm font-medium text-foreground">AI Analysis in Progress...</p>
+                  <p className="text-xs text-muted-foreground">Detecting threat patterns and classification</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {analysisResult && (
+            <Card className="border-primary/50 bg-primary/5">
+              <CardHeader>
+                <CardTitle>AI Threat Analysis Results</CardTitle>
+                <CardDescription>Comprehensive threat assessment and recommendations</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {analysisResult.detectedFormat && (
+                  <Alert className="border-border bg-muted/50">
                     <AlertDescription className="text-xs">
-                      All evidence is encrypted before secure storage.
+                      <span className="font-medium">Format Analyzed:</span> {analysisResult.detectedFormat}
+                      {uploadedFiles[0] && ` (${uploadedFiles[0].name})`}
                     </AlertDescription>
                   </Alert>
-                </CardContent>
-              </Card>
+                )}
 
-              <Card className="border-border">
-                <CardHeader>
-                  <CardTitle>Incident Details</CardTitle>
-                  <CardDescription>Provide information about the cyber incident</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description (Optional)</Label>
-                    <Textarea
-                      id="description"
-                      placeholder="Describe what happened, when you noticed it, and any other relevant details..."
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      rows={4}
-                      className="resize-none"
-                    />
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="rounded-lg border border-border bg-card p-4">
+                    <div className="mb-1 text-xs text-muted-foreground">Detected Attack Type</div>
+                    <div className="text-lg font-bold text-foreground">{analysisResult.attackType}</div>
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="affected-system">Affected System / App / Platform</Label>
-                    <Input
-                      id="affected-system"
-                      placeholder="e.g., Email, WhatsApp, Defence Portal, Banking App"
-                      value={affectedSystem}
-                      onChange={(e) => setAffectedSystem(e.target.value)}
-                    />
+                  <div className="rounded-lg border border-border bg-card p-4">
+                    <div className="mb-1 text-xs text-muted-foreground">Risk Severity</div>
+                    <Badge
+                      variant="outline"
+                      className={
+                        analysisResult.severity === "High"
+                          ? "border-destructive/50 text-destructive"
+                          : analysisResult.severity === "Medium"
+                            ? "border-secondary/50 text-secondary"
+                            : "border-primary/50 text-primary"
+                      }
+                    >
+                      {analysisResult.severity}
+                    </Badge>
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="location">Location (Optional)</Label>
-                    <Input
-                      id="location"
-                      placeholder="e.g., Delhi, Mumbai, Remote Location"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                    />
+                  <div className="rounded-lg border border-border bg-card p-4">
+                    <div className="mb-1 text-xs text-muted-foreground">Confidence Score</div>
+                    <div className="text-lg font-bold text-foreground">{analysisResult.confidence}%</div>
                   </div>
+                </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-lg border border-border bg-muted/50 p-3">
-                      <Label className="text-xs text-muted-foreground">Date & Time</Label>
-                      <div className="mt-1 text-sm font-medium text-foreground">{currentDateTime}</div>
+                {analysisResult.mitigationSteps && analysisResult.mitigationSteps.length > 0 && (
+                  <div className="rounded-lg border border-border bg-card p-4">
+                    <div className="mb-3 text-sm font-semibold text-foreground">
+                      Recommended Next Steps / Safety Guidance
                     </div>
-                    <div className="rounded-lg border border-border bg-muted/50 p-3">
-                      <Label className="text-xs text-muted-foreground">Reported By</Label>
-                      <div className="mt-1 text-sm font-medium text-foreground">{user.name}</div>
-                    </div>
+                    <ul className="space-y-2">
+                      {analysisResult.mitigationSteps.map((step, index) => (
+                        <li key={index} className="flex gap-2 text-sm text-muted-foreground">
+                          <span className="text-primary">•</span>
+                          <span className="leading-relaxed">{step}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                </CardContent>
-              </Card>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-              {/* AI Analysis Panel */}
-              {!analysisResult && !isAnalyzing && (description || uploadedFiles.length > 0) && (
-                <Button type="button" onClick={handleAnalyze} variant="outline" className="w-full bg-transparent">
-                  Run AI Threat Analysis
-                </Button>
-              )}
-
-              {isAnalyzing && (
-                <Card className="border-border">
-                  <CardContent className="flex items-center justify-center py-12">
-                    <div className="text-center">
-                      <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-primary" />
-                      <p className="text-sm font-medium text-foreground">AI Analysis in Progress...</p>
-                      <p className="text-xs text-muted-foreground">Detecting threat patterns and classification</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {analysisResult && (
-                <Card className="border-primary/50 bg-primary/5">
-                  <CardHeader>
-                    <CardTitle>AI Threat Analysis Results</CardTitle>
-                    <CardDescription>Comprehensive threat assessment and recommendations</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {analysisResult.detectedFormat && (
-                      <Alert className="border-border bg-muted/50">
-                        <AlertDescription className="text-xs">
-                          <span className="font-medium">Format Analyzed:</span> {analysisResult.detectedFormat}
-                          {uploadedFiles[0] && ` (${uploadedFiles[0].name})`}
-                        </AlertDescription>
-                      </Alert>
-                    )}
-
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <div className="rounded-lg border border-border bg-card p-4">
-                        <div className="mb-1 text-xs text-muted-foreground">Detected Attack Type</div>
-                        <div className="text-lg font-bold text-foreground">{analysisResult.attackType}</div>
-                      </div>
-                      <div className="rounded-lg border border-border bg-card p-4">
-                        <div className="mb-1 text-xs text-muted-foreground">Risk Severity</div>
-                        <Badge
-                          variant="outline"
-                          className={
-                            analysisResult.severity === "High"
-                              ? "border-destructive/50 text-destructive"
-                              : analysisResult.severity === "Medium"
-                                ? "border-secondary/50 text-secondary"
-                                : "border-primary/50 text-primary"
-                          }
-                        >
-                          {analysisResult.severity}
-                        </Badge>
-                      </div>
-                      <div className="rounded-lg border border-border bg-card p-4">
-                        <div className="mb-1 text-xs text-muted-foreground">Confidence Score</div>
-                        <div className="text-lg font-bold text-foreground">{analysisResult.confidence}%</div>
-                      </div>
-                    </div>
-
-                    {analysisResult.mitigationSteps && analysisResult.mitigationSteps.length > 0 && (
-                      <div className="rounded-lg border border-border bg-card p-4">
-                        <div className="mb-3 text-sm font-semibold text-foreground">
-                          Recommended Next Steps / Safety Guidance
-                        </div>
-                        <ul className="space-y-2">
-                          {analysisResult.mitigationSteps.map((step, index) => (
-                            <li key={index} className="flex gap-2 text-sm text-muted-foreground">
-                              <span className="text-primary">•</span>
-                              <span className="leading-relaxed">{step}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                size="lg"
-                className="w-full"
-                disabled={!analysisResult || (!description && uploadedFiles.length === 0)}
-              >
-                Submit Incident Report
-              </Button>
-            </form>
-          </div>
-        </main>
+          {/* Submit Button */}
+          <Button
+            type="submit"
+            size="lg"
+            className="w-full"
+            disabled={!analysisResult || (!description && uploadedFiles.length === 0)}
+          >
+            Submit Incident Report
+          </Button>
+        </form>
       </div>
-
       <ConfirmationModal open={showModal} onClose={handleModalClose} caseData={submittedCase} />
-    </div>
+    </UserShell >
   )
 }
 

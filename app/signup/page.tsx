@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Shield, AlertTriangle, CheckCircle2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
+import { PublicHeader } from "@/components/public-header"
 
 export default function SignupPage() {
   const router = useRouter()
@@ -122,23 +123,10 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
-          <Link href="/" className="flex items-center gap-2 md:gap-3">
-            <Shield className="h-6 w-6 md:h-8 md:w-8 text-primary" />
-            <span className="text-lg md:text-xl font-bold tracking-tight text-foreground">RakshaSetu</span>
-          </Link>
-          <Link href="/login">
-            <Button variant="outline" size="sm">
-              Login
-            </Button>
-          </Link>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background text-foreground font-sans antialiased">
+      <PublicHeader activePage="signup" />
 
-      <div className="container mx-auto px-4 md:px-6 py-8 md:py-12">
+      <div className="container mx-auto px-4 py-8 md:py-12 lg:py-16">
         <div className="mx-auto max-w-2xl">
           <Card className="border-border bg-card">
             <CardHeader className="p-4 md:p-6">

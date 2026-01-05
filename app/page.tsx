@@ -1,52 +1,38 @@
+"use client"
+
+import { useState } from "react" // This will be removed
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Shield, Eye, FileText, AlertTriangle } from "lucide-react"
+import { Shield, Eye, FileText, AlertTriangle, Menu, X } from "lucide-react" // Menu, X will be removed
+import { PublicHeader } from "@/components/public-header"
 
 export default function LandingPage() {
+  // const [mobileMenuOpen, setMobileMenuOpen] = useState(false) // This line is removed
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
-          <div className="flex items-center gap-2 md:gap-3">
-            <Shield className="h-6 w-6 md:h-8 md:w-8 text-primary" />
-            <span className="text-lg md:text-xl font-bold tracking-tight text-foreground">RakshaSetu</span>
-          </div>
-          <div className="flex items-center gap-2 md:gap-3">
-            <Link href="/login">
-              <Button size="sm" variant="outline" className="text-xs md:text-sm bg-transparent">
-                Login
-              </Button>
-            </Link>
-            <Link href="/signup">
-              <Button size="sm" className="text-xs md:text-sm">
-                Sign Up
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background text-foreground">
+      <PublicHeader activePage="landing" />
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 md:px-6 py-12 md:py-20">
+      <section className="container mx-auto px-4 md:px-6 py-12 md:py-24 lg:py-32">
         <div className="mx-auto max-w-4xl text-center">
           <div className="mb-4 md:mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 md:px-4 py-1.5 text-xs md:text-sm text-primary">
             <Shield className="h-3 w-3 md:h-4 md:w-4" />
             <span className="font-medium">Defence-Grade Security Platform</span>
           </div>
 
-          <h1 className="mb-4 md:mb-6 text-balance text-3xl md:text-5xl lg:text-6xl font-bold tracking-tight text-foreground">
-            RakshaSetu — Real-Time Cyber Protection for Defence Personnel
+          <h1 className="mb-4 md:mb-6 text-balance text-3xl md:text-5xl lg:text-7xl font-bold tracking-tight text-foreground">
+            RakshaSetu — Real-Time Cyber Protection for Defence
           </h1>
 
-          <p className="mb-6 md:mb-8 text-balance text-base md:text-lg lg:text-xl text-muted-foreground px-4">
+          <p className="mb-8 md:mb-12 text-balance text-base md:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto">
             A secure AI-driven platform for threat detection, evidence preservation, and coordinated CERT response.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4">
             <Link href="/signup">
-              <Button size="lg" className="font-semibold text-sm md:text-base w-full sm:w-auto">
+              <Button size="lg" className="font-semibold px-8 py-6 text-base w-full sm:w-auto shadow-lg shadow-primary/20">
                 Create Account
               </Button>
             </Link>
@@ -54,7 +40,7 @@ export default function LandingPage() {
               <Button
                 size="lg"
                 variant="outline"
-                className="font-semibold text-sm md:text-base w-full sm:w-auto bg-transparent"
+                className="font-semibold px-8 py-6 text-base w-full sm:w-auto bg-transparent border-primary/20 hover:bg-primary/5"
               >
                 Existing User Login
               </Button>
