@@ -23,7 +23,6 @@ export default function LoginPage() {
   // User login state
   const [userRole, setUserRole] = useState<UserRole>("serving")
   const [userEmail, setUserEmail] = useState("")
-  const [userMobile, setUserMobile] = useState("")
   const [userEchs, setUserEchs] = useState("")
   const [userDepId, setUserDepId] = useState("")
   const [userPassword, setUserPassword] = useState("")
@@ -38,13 +37,31 @@ export default function LoginPage() {
     try {
       let authEmail = userEmail
 
-      // For non-serving roles, construct email from mobile (as done in signup)
-      if (userRole !== "serving") {
-        if (!userMobile) {
-          toast({ title: "Error", description: "Mobile number is required", variant: "destructive" })
+      if (userRole === "ex-serviceman") {
+        if (!userEmail) {
+          toast({ title: "Error", description: "Email is required", variant: "destructive" })
           return
         }
-        authEmail = `${userMobile}@rakshasetu.local`
+        if (!userEchs) {
+          toast({ title: "Error", description: "ECHS Number is required", variant: "destructive" })
+          return
+        }
+      } else if (userRole === "dependent") {
+        if (!userDepId) {
+          toast({ title: "Error", description: "Dependent ID is required", variant: "destructive" })
+          return
+        }
+        if (!userEmail) {
+          toast({ title: "Error", description: "Email is required", variant: "destructive" })
+          return
+        }
+        // Use actual email for auth
+        authEmail = userEmail
+      } else if (userRole === "serving") {
+        if (!userEmail) {
+          toast({ title: "Error", description: "Office Email is required", variant: "destructive" })
+          return
+        }
       }
 
       // 1. Sign In with Supabase Auth
@@ -57,7 +74,6 @@ export default function LoginPage() {
       if (!authData.user) throw new Error("Authentication failed")
 
       // 2. Fetch Profile
-      // Now that we are logged in, RLS should allow us to read our own profile
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -68,9 +84,24 @@ export default function LoginPage() {
         throw new Error("Profile not found")
       }
 
-      // 3. Verify Role matches (optional security check)
+      // 3. Verify Role matches
       if (data.role !== userRole) {
         throw new Error("Role mismatch. Please login with the correct role.")
+      }
+
+      // 4. Specific checks
+      if (userRole === "ex-serviceman") {
+        const profileEchs = (data.echs_number || "").trim().toLowerCase();
+        const inputEchs = userEchs.trim().toLowerCase();
+        if (profileEchs !== inputEchs) {
+          throw new Error("ECHS Number mismatch. Please verify your details.")
+        }
+      }
+
+      if (userRole === "dependent") {
+        if (data.dependent_id !== userDepId) {
+          throw new Error("Dependent ID mismatch. Please verify your ID.")
+        }
       }
 
       store.setUser({
@@ -86,10 +117,24 @@ export default function LoginPage() {
       router.push("/dashboard")
 
     } catch (error: any) {
-      console.error(error)
+      console.error("Login Error Full Object:", error)
+      const errorMsg = error.message || "Invalid credentials."
+
+      // Handle "Email not confirmed" specifically
+      if (errorMsg.includes("Email not confirmed")) {
+        toast({
+          title: "Account Not Verified",
+          description: "Your ECHS account is waiting for approval. Please contact Admin or check if auto-confirmation is enabled.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const errorDetails = error.details || error.hint || ""
+
       toast({
         title: "Authentication failed",
-        description: error.message || "Invalid credentials.",
+        description: `${errorMsg} ${errorDetails ? `(${errorDetails})` : ''}`,
         variant: "destructive",
       })
     }
@@ -133,6 +178,41 @@ export default function LoginPage() {
     <div className="min-h-screen bg-background text-foreground font-sans antialiased">
       <PublicHeader activePage="login" />
 
+      {/* Demo Credentials for Judges */}
+      <div className="container mx-auto px-4 pt-8">
+        <div className="mx-auto max-w-6xl rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h3 className="mb-2 font-semibold text-primary">Demo Credentials (For Judges)</h3>
+              <div className="grid gap-x-8 gap-y-2 md:grid-cols-2 lg:grid-cols-4">
+                <div className="space-y-1">
+                  <span className="font-medium text-foreground">Serving Personnel</span>
+                  <div className="text-muted-foreground">Em: ayaanbargir24@gmail.com</div>
+                  <div className="text-muted-foreground">Pass: 123456789</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="font-medium text-foreground">Ex-Serviceman</span>
+                  <div className="text-muted-foreground">Em: ayaanbargir024@gmail.com</div>
+                  <div className="text-muted-foreground">ECHS: ECSH-778812</div>
+                  <div className="text-muted-foreground">Pass: 123456</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="font-medium text-foreground">Dependent</span>
+                  <div className="text-muted-foreground">Em: asiyamujawar05@gmail.com</div>
+                  <div className="text-muted-foreground">ID: DEP-44321</div>
+                  <div className="text-muted-foreground">Pass: 123456</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="font-medium text-foreground">CERT Admin</span>
+                  <div className="text-muted-foreground">Em: cert.admin@gov.in</div>
+                  <div className="text-muted-foreground">Pass: Raksha@123</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="container mx-auto px-4 py-8 md:py-12 lg:py-16">
         <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2">
           {/* User Access Card */}
@@ -170,7 +250,7 @@ export default function LoginPage() {
                 {userRole === "serving" && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="user-email">Defence Email</Label>
+                      <Label htmlFor="user-email">Office Email</Label>
                       <Input
                         id="user-email"
                         type="email"
@@ -197,24 +277,24 @@ export default function LoginPage() {
                 {userRole === "ex-serviceman" && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="echs">ECHS Number</Label>
+                      <Label htmlFor="ex-email">Email</Label>
                       <Input
-                        id="echs"
-                        type="text"
-                        placeholder="ECHS-XXXXXX"
-                        value={userEchs}
-                        onChange={(e) => setUserEchs(e.target.value)}
+                        id="ex-email"
+                        type="email"
+                        placeholder="yourname@domain.com"
+                        value={userEmail}
+                        onChange={(e) => setUserEmail(e.target.value)}
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="mobile">Mobile Number</Label>
+                      <Label htmlFor="echs">ECHS Number</Label>
                       <Input
-                        id="mobile"
-                        type="tel"
-                        placeholder="Enter mobile number"
-                        value={userMobile}
-                        onChange={(e) => setUserMobile(e.target.value)}
+                        id="echs"
+                        type="text"
+                        placeholder="ECHS-778812"
+                        value={userEchs}
+                        onChange={(e) => setUserEchs(e.target.value)}
                         required
                       />
                     </div>
@@ -235,24 +315,24 @@ export default function LoginPage() {
                 {userRole === "dependent" && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="dep-id">Dependent ID</Label>
+                      <Label htmlFor="dep-email">Email</Label>
                       <Input
-                        id="dep-id"
-                        type="text"
-                        placeholder="DEP-XXXXX"
-                        value={userDepId}
-                        onChange={(e) => setUserDepId(e.target.value)}
+                        id="dep-email"
+                        type="email"
+                        placeholder="yourname@gmail.com"
+                        value={userEmail}
+                        onChange={(e) => setUserEmail(e.target.value)}
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="dep-mobile">Mobile Number</Label>
+                      <Label htmlFor="dep-id">Dependent ID</Label>
                       <Input
-                        id="dep-mobile"
-                        type="tel"
-                        placeholder="Enter mobile number"
-                        value={userMobile}
-                        onChange={(e) => setUserMobile(e.target.value)}
+                        id="dep-id"
+                        type="text"
+                        placeholder="DEP-44321"
+                        value={userDepId}
+                        onChange={(e) => setUserDepId(e.target.value)}
                         required
                       />
                     </div>
@@ -287,6 +367,8 @@ export default function LoginPage() {
                     <p className="text-xs text-foreground">Civilian access is strictly prohibited.</p>
                   </div>
                 </div>
+
+
               </form>
             </CardContent>
           </Card>
@@ -336,15 +418,6 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 space-y-2 rounded-lg bg-muted/50 p-3">
-                  <p className="text-xs font-medium text-muted-foreground">Demo Credentials:</p>
-                  <ul className="space-y-1 text-xs text-muted-foreground">
-                    <li>• Serving: rajat.singh@indianarmy.mil | Pass: 123456</li>
-                    <li>• Ex-Serviceman: ECHS-778812 | Pass: 123456</li>
-                    <li>• Dependent: DEP-44321 | Pass: 123456</li>
-                    <li>• Admin: cert.admin@gov.in | Pass: Raksha@123</li>
-                  </ul>
-                </div>
               </form>
             </CardContent>
           </Card>

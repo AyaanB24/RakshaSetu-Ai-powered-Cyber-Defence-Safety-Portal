@@ -19,61 +19,31 @@ export default function SignupPage() {
   const { toast } = useToast()
   const [userRole, setUserRole] = useState<"serving" | "ex-serviceman" | "dependent">("serving")
 
-  // Form fields
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
-  const [mobile, setMobile] = useState("")
   const [echsNo, setEchsNo] = useState("")
   const [dependentId, setDependentId] = useState("")
-  const [serviceNo, setServiceNo] = useState("")
   const [unit, setUnit] = useState("")
   const [password, setPassword] = useState("")
-  const [otp, setOtp] = useState("")
-  const [otpSent, setOtpSent] = useState(false)
-
-  const handleSendOtp = () => {
-    if (userRole === "serving" && !email) {
-      toast({ title: "Error", description: "Please enter your defence email", variant: "destructive" })
-      return
-    }
-    if ((userRole === "ex-serviceman" || userRole === "dependent") && !mobile) {
-      toast({ title: "Error", description: "Please enter your mobile number", variant: "destructive" })
-      return
-    }
-
-    setOtpSent(true)
-    toast({
-      title: "OTP Sent",
-      description: userRole === "serving" ? "OTP sent to your defence email" : "OTP sent to your mobile number",
-    })
-  }
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!otpSent) {
-      toast({ title: "Error", description: "Please request OTP first", variant: "destructive" })
-      return
-    }
-
-    if (otp !== "123456") {
-      toast({
-        title: "Invalid OTP",
-        description: "Please check the OTP and try again.",
-        variant: "destructive",
-      })
-      return
-    }
-
     try {
+      // Construct auth email
+      // Auth email is the email provided by the user for all roles
+      const authEmail = email
+
       // 1. Sign up with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email || `${mobile}@rakshasetu.local`, // Fallback for mobile-only users
+        email: authEmail,
         password: password,
         options: {
           data: {
             full_name: name,
             role: userRole,
+            echs_number: userRole === "ex-serviceman" ? echsNo : undefined,
+            dependent_id: userRole === "dependent" ? dependentId : undefined,
           },
         },
       })
@@ -83,7 +53,7 @@ export default function SignupPage() {
 
       // 2. Create Profile linked to Auth User
       const profileData: any = {
-        id: authData.user.id, // Critical: Link to auth.users
+        id: authData.user.id,
         role: userRole,
         full_name: name,
         created_at: new Date().toISOString(),
@@ -91,16 +61,13 @@ export default function SignupPage() {
 
       if (userRole === "serving") {
         profileData.email = email
-        profileData.service_number = serviceNo
         profileData.unit = unit
       } else if (userRole === "ex-serviceman") {
+        profileData.email = email // personal email stored in profile, but not used for auth username
         profileData.echs_number = echsNo
-        profileData.mobile = mobile
-        profileData.service_number = serviceNo
       } else if (userRole === "dependent") {
+        profileData.email = email
         profileData.dependent_id = dependentId
-        profileData.mobile = mobile
-        profileData.service_number = serviceNo
       }
 
       const { error: profileError } = await supabase.from("profiles").insert([profileData])
@@ -109,9 +76,9 @@ export default function SignupPage() {
 
       toast({
         title: "Registration Successful",
-        description: "Your account has been created. Redirecting to login...",
+        description: "Please check your email to verify your account before logging in.",
       })
-      setTimeout(() => router.push("/login"), 2000)
+      setTimeout(() => router.push("/login"), 3000)
     } catch (error: any) {
       console.error(error)
       toast({
@@ -179,24 +146,13 @@ export default function SignupPage() {
                 {userRole === "serving" && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Defence Email</Label>
+                      <Label htmlFor="email">Office Email</Label>
                       <Input
                         id="email"
                         type="email"
                         placeholder="name@indianarmy.mil"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="service-no">Service Number</Label>
-                      <Input
-                        id="service-no"
-                        type="text"
-                        placeholder="Enter service number"
-                        value={serviceNo}
-                        onChange={(e) => setServiceNo(e.target.value)}
                         required
                       />
                     </div>
@@ -228,24 +184,13 @@ export default function SignupPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="mobile">Mobile Number</Label>
+                      <Label htmlFor="email">Personal Email (for authentication)</Label>
                       <Input
-                        id="mobile"
-                        type="tel"
-                        placeholder="Enter mobile number"
-                        value={mobile}
-                        onChange={(e) => setMobile(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="service-no-ex">Service Number (Last Held)</Label>
-                      <Input
-                        id="service-no-ex"
-                        type="text"
-                        placeholder="Enter last service number"
-                        value={serviceNo}
-                        onChange={(e) => setServiceNo(e.target.value)}
+                        id="email"
+                        type="email"
+                        placeholder="yourname@gmail.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         required
                       />
                     </div>
@@ -255,34 +200,24 @@ export default function SignupPage() {
                 {userRole === "dependent" && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="dep-id">Dependent ID</Label>
+                      <Label htmlFor="email">Email Address</Label>
                       <Input
-                        id="dep-id"
-                        type="text"
-                        placeholder="DEP-XXXXX (if existing)"
-                        value={dependentId}
-                        onChange={(e) => setDependentId(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="mobile-dep">Mobile Number</Label>
-                      <Input
-                        id="mobile-dep"
-                        type="tel"
-                        placeholder="Enter mobile number"
-                        value={mobile}
-                        onChange={(e) => setMobile(e.target.value)}
+                        id="email"
+                        type="email"
+                        placeholder="yourname@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="sponsor-no">Sponsor Service Number</Label>
+                      <Label htmlFor="dep-id">Dependent ID</Label>
                       <Input
-                        id="sponsor-no"
+                        id="dep-id"
                         type="text"
-                        placeholder="Enter sponsor's service number"
-                        value={serviceNo}
-                        onChange={(e) => setServiceNo(e.target.value)}
+                        placeholder="DEP-XXXXX"
+                        value={dependentId}
+                        onChange={(e) => setDependentId(e.target.value)}
                         required
                       />
                     </div>
@@ -303,43 +238,7 @@ export default function SignupPage() {
                   />
                 </div>
 
-                {/* OTP Section */}
-                <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-foreground">Verification</Label>
-                    {otpSent && <CheckCircle2 className="h-5 w-5 text-primary" />}
-                  </div>
-
-                  {!otpSent ? (
-                    <Button type="button" onClick={handleSendOtp} variant="outline" className="w-full bg-transparent">
-                      Send OTP
-                    </Button>
-                  ) : (
-                    <div className="space-y-2">
-                      <Label htmlFor="otp">Enter OTP</Label>
-                      <Input
-                        id="otp"
-                        type="text"
-                        placeholder="Enter 6-digit OTP"
-                        value={otp}
-                        onChange={(e) => setOtp(e.target.value)}
-                        maxLength={6}
-                        required
-                      />
-                      <Button
-                        type="button"
-                        onClick={handleSendOtp}
-                        variant="ghost"
-                        size="sm"
-                        className="w-full text-xs"
-                      >
-                        Resend OTP
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                <Button type="submit" className="w-full" disabled={!otpSent}>
+                <Button type="submit" className="w-full">
                   Create Account
                 </Button>
 
@@ -357,11 +256,6 @@ export default function SignupPage() {
                   <Link href="/login" className="text-primary hover:underline">
                     Login here
                   </Link>
-                </div>
-
-                <div className="mt-4 space-y-2 rounded-lg bg-muted/50 p-3">
-                  <p className="text-xs font-medium text-muted-foreground">Demo OTP for Testing:</p>
-                  <p className="text-xs text-muted-foreground">Use OTP: 123456</p>
                 </div>
               </form>
             </CardContent>
